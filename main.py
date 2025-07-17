@@ -5,6 +5,11 @@ import tensorflow as tf
 import datetime
 from gpiozero import LED
 from time import sleep
+import firebase_setup
+import constant
+
+collection = firebase_setup.db.collection(constant.COLLECTION_NAME)
+doc_ref = collection.document(constant.DOCUMENT_MASK)
 
 # Initialize LEDs
 green_led = LED(17)
