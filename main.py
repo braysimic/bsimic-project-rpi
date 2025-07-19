@@ -2,12 +2,13 @@ import os
 import cv2
 import numpy as np
 import tensorflow as tf
-import datetime
 from gpiozero import LED
 from time import sleep
 import firebase_setup
 import constant
+import time
 
+# Reference Firestore document
 collection = firebase_setup.db.collection(constant.COLLECTION_NAME)
 doc_ref = collection.document(constant.DOCUMENT_MASK)
 
@@ -15,24 +16,23 @@ doc_ref = collection.document(constant.DOCUMENT_MASK)
 green_led = LED(17)
 red_led = LED(27)
 
-# Load labels (make sure labels.txt has one label per line: e.g., "Mask", "No Mask")
+# Load labels
 with open('labels.txt', 'r') as f:
     labels = [line.strip() for line in f.readlines()]
 
-# Load TFLite model and allocate tensors
-interpreter = tf.lite.Interpreter(model_path='Model.tflite')
+# Load TFLite model
+interpreter = tf.lite.Interpreter(model_path='Model4.tflite')
 interpreter.allocate_tensors()
 
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
-height = input_details[0]['shape'][1]   # should be 96
-width = input_details[0]['shape'][2]    # should be 96
-channels = input_details[0]['shape'][3] # should be 1 for grayscale
+height = input_details[0]['shape'][1]
+width = input_details[0]['shape'][2]
+channels = input_details[0]['shape'][3]
 floating_model = input_details[0]['dtype'] == np.float32
 
 def capture_image():
-    # Take picture using libcamera-jpeg
     os.system("libcamera-jpeg -o cam.jpg --width 640 --height 480")
 
 def predict_mask(image_path):
@@ -41,15 +41,14 @@ def predict_mask(image_path):
         print(f"Failed to load image: {image_path}")
         return None, None
 
-    # Convert to grayscale if model expects 1 channel
     if channels == 1:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         image = cv2.resize(image, (width, height))
-        input_data = np.expand_dims(image, axis=(0, -1))  # shape: (1, 96, 96, 1)
+        input_data = np.expand_dims(image, axis=(0, -1))
     else:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image, (width, height))
-        input_data = np.expand_dims(image, axis=0)        # shape: (1, 96, 96, 3)
+        input_data = np.expand_dims(image, axis=0)
 
     if floating_model:
         input_data = (np.float32(input_data) - 127.5) / 127.5
@@ -82,6 +81,18 @@ def led_indicator(label):
         green_led.on()
         red_led.off()
 
+def update_firestore(label, confidence):
+    timestamp = int(time.time() * 1e9)  # nanoseconds
+    try:
+        doc_ref.set({
+            "mask_status": label,
+            "confidence": float(confidence),
+            "timestamp": timestamp
+        })
+        print("Firestore updated.")
+    except Exception as e:
+        print(f"Failed to update Firestore: {e}")
+
 def main():
     print("Capturing image...")
     capture_image()
@@ -95,6 +106,8 @@ def main():
 
     print(f"Prediction: {label} ({confidence * 100:.2f}%)")
     led_indicator(label)
+    update_firestore(label, confidence)
+
     sleep(5)
     green_led.off()
     red_led.off()
