@@ -87,21 +87,21 @@ def update_firestore(label, confidence):
         doc_ref.set({
             "mask_status": label,
             "confidence": float(confidence),
-            "timestamp": timestamp
+            
         })
-        print("Firestore updated.")
+        # print("Firestore updated.")
     except Exception as e:
         print(f"Failed to update Firestore: {e}")
 
 def main():
-    print("Capturing image...")
+    # print("Capturing image...")
     capture_image()
 
-    print("Running mask prediction...")
+    # print("Running mask prediction...")
     label, confidence = predict_mask("cam.jpg")
 
     if label is None:
-        print("Prediction failed.")
+        # print("Prediction failed.")
         return
 
     print(f"Prediction: {label} ({confidence * 100:.2f}%)")
