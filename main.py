@@ -8,19 +8,15 @@ import firebase_setup
 import constant
 import time
 
-# Reference Firestore document
 collection = firebase_setup.db.collection(constant.COLLECTION_NAME)
 doc_ref = collection.document(constant.DOCUMENT_MASK)
 
-# Initialize LEDs
 green_led = LED(17)
 red_led = LED(27)
 
-# Load labels
 with open('labels.txt', 'r') as f:
     labels = [line.strip() for line in f.readlines()]
 
-# Load TFLite model
 interpreter = tf.lite.Interpreter(model_path='Model4.tflite')
 interpreter.allocate_tensors()
 
@@ -82,26 +78,23 @@ def led_indicator(label):
         red_led.off()
 
 def update_firestore(label, confidence):
-    timestamp = int(time.time() * 1e9)  # nanoseconds
+    timestamp = int(time.time() * 1e9)
     try:
         doc_ref.set({
             "mask_status": label,
             "confidence": float(confidence),
             
         })
-        # print("Firestore updated.")
+        
     except Exception as e:
         print(f"Failed to update Firestore: {e}")
 
 def main():
-    # print("Capturing image...")
     capture_image()
 
-    # print("Running mask prediction...")
     label, confidence = predict_mask("cam.jpg")
 
     if label is None:
-        # print("Prediction failed.")
         return
 
     print(f"Prediction: {label} ({confidence * 100:.2f}%)")
